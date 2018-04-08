@@ -23,7 +23,11 @@ extension TokenAuthenticatable where Self.Database: QuerySupporting {
         on connection: DatabaseConnectable
     ) -> Future<Self?> {
         return Future.flatMap(on: connection) {
-            return try token.authUser.get(on: connection).map(to: Self?.self) { $0 }
+            guard let authUser = token.authUser else {
+                return Future<Self?>.map(on: connection, { nil })
+            }
+            
+            return try authUser.get(on: connection).map(to: Self?.self) { $0 }
         }
     }
 
@@ -37,7 +41,7 @@ public protocol Token: BearerAuthenticatable {
         where UserType.Database == Database
 
     /// Key path to the user ID
-    typealias UserIDKey = WritableKeyPath<Self, UserType.ID>
+    typealias UserIDKey = WritableKeyPath<Self, UserType.ID?>
 
     /// A relation to the user that owns this token.
     static var userIDKey: UserIDKey { get }
@@ -52,7 +56,7 @@ extension TokenAuthenticatable {
 
 extension Token {
     /// A relation to this token's owner.
-    public var authUser: Parent<Self, UserType> {
+    public var authUser: Parent<Self, UserType>? {
         return parent(Self.userIDKey)
     }
 }
